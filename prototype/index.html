@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Dayset · 网页原型</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <main class="widget" aria-label="Dayset 待办原型">
+      <header class="topbar">
+        <div class="brand"><span>Dayset</span><span class="prototype-label">原型</span></div>
+        <div class="more-wrap">
+          <button class="icon-button" id="more-button" type="button" aria-label="更多选项" aria-expanded="false" aria-controls="more-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg></button>
+          <div class="more-menu" id="more-menu" hidden>
+            <button type="button" id="completed-button">已完成 <span id="completed-count"></span></button>
+            <button type="button" id="reset-button">重置示例任务</button>
+          </div>
+        </div>
+      </header>
+
+      <section class="intro" aria-label="当前视图">
+        <div class="intro-copy">
+          <p class="date-label" id="date-label"></p>
+          <div class="title-line"><h1 id="view-title"></h1><span id="view-count"></span></div>
+          <p class="hero-caption" id="hero-caption"></p>
+        </div>
+        <div class="progress-badge" id="progress-badge" aria-label="今日完成进度"><div class="progress-inner"><strong id="progress-value"></strong><span>完成</span></div></div>
+      </section>
+
+      <nav class="tabs" id="tabs" aria-label="任务视图">
+        <button type="button" data-view="today">今天</button>
+        <button type="button" data-view="inbox">收件箱</button>
+        <button type="button" data-view="planned">计划</button>
+        <button class="desktop-only" type="button" data-view="completed">已完成</button>
+      </nav>
+
+      <div class="task-list" id="task-list" aria-live="polite"></div>
+
+      <p class="desktop-help">按 Ctrl+N 快速添加<br />点击任务，可安排日期与提醒</p>
+
+      <div class="bottom-area">
+        <form class="add-form" id="add-form">
+          <span class="add-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg></span>
+          <label class="sr-only" for="add-input">添加任务</label>
+          <input id="add-input" type="text" maxlength="180" autocomplete="off" placeholder="添加一件要做的事…" />
+          <button type="submit" aria-label="添加任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 4v7a4 4 0 0 1-4 4H4" /><path d="m9 10-5 5 5 5" /></svg></button>
+        </form>
+        <p id="add-hint"></p>
+      </div>
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toast-message"></span><button id="toast-undo" type="button" hidden>撤销</button></div>
+  </body>
+</html>
