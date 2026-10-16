@@ -2,7 +2,9 @@
 
 一个简洁的个人待办工具。先设计并实现 Windows 版本，再决定是否扩展到其他平台。
 
-项目目前处于原型设计阶段。
+网页原型已确认，Windows 客户端正在本地开发和验证，尚未发布安装包。
+
+Windows 客户端的第一阶段实现位于 [apps/desktop](apps/desktop/README.md)，架构与数据模型见 [架构文档](docs/architecture.md)。
 
 ## 体验原型
 
