@@ -19,19 +19,19 @@ test('新任务按所在视图安排日期', () => {
   assert.equal(createTask('收件箱', 'inbox').dueDate, null)
 })
 
-test('今天包含逾期事项，收件箱与已完成独立，删除记录不可见', () => {
+test('已完成事项保留在原日期视图，删除记录不可见', () => {
   const today = '2026-10-16'
   const overdue = task({ id: 'overdue', dueDate: '2026-10-15' })
   const due = task({ id: 'due', dueDate: today })
   const future = task({ id: 'future', dueDate: '2026-10-17' })
   const inbox = task({ id: 'inbox' })
   const completed = task({ id: 'completed', dueDate: today, completedAt: Date.now() })
+  const completedInbox = task({ id: 'completed-inbox', completedAt: Date.now() })
   const deleted = task({ id: 'deleted', dueDate: today, deletedAt: Date.now() })
-  const all = [future, deleted, due, inbox, completed, overdue]
-  assert.deepEqual(tasksForView(all, 'today', today).map(item => item.id), ['overdue', 'due'])
-  assert.deepEqual(tasksForView(all, 'inbox', today).map(item => item.id), ['inbox'])
-  assert.deepEqual(tasksForView(all, 'planned', today).map(item => item.id), ['overdue', 'due', 'future'])
-  assert.deepEqual(tasksForView(all, 'completed', today).map(item => item.id), ['completed'])
+  const all = [future, deleted, due, inbox, completed, completedInbox, overdue]
+  assert.deepEqual(tasksForView(all, 'today', today).map(item => item.id), ['overdue', 'due', 'completed'])
+  assert.deepEqual(tasksForView(all, 'inbox', today).map(item => item.id), ['inbox', 'completed-inbox'])
+  assert.deepEqual(tasksForView(all, 'planned', today).map(item => item.id), ['overdue', 'due', 'future', 'completed'])
 })
 
 test('同一天先显示有具体时间的任务', () => {

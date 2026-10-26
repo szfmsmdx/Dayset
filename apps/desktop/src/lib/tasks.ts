@@ -1,4 +1,4 @@
-export type View = 'today' | 'inbox' | 'planned' | 'completed'
+export type View = 'today' | 'inbox' | 'planned'
 
 export interface Task {
   id: string
@@ -78,13 +78,11 @@ export function createTask(title: string, view: View): Task {
 export function tasksForView(tasks: Task[], view: View, today = localDay()): Task[] {
   return tasks.filter(task => {
     if (task.deletedAt !== null) return false
-    if (view === 'completed') return task.completedAt !== null
-    if (task.completedAt !== null) return false
     if (view === 'inbox') return task.dueDate === null
     if (view === 'today') return task.dueDate !== null && task.dueDate <= today
     return task.dueDate !== null
   }).sort((a, b) => {
-    if (view === 'completed') return (b.completedAt ?? 0) - (a.completedAt ?? 0)
+    if ((a.completedAt !== null) !== (b.completedAt !== null)) return a.completedAt !== null ? 1 : -1
     if ((view === 'planned' || view === 'today') && a.dueDate !== b.dueDate) {
       return (a.dueDate ?? '').localeCompare(b.dueDate ?? '')
     }

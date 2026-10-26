@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { getCurrentWindow } from '@tauri-apps/api/window'
   import { openTaskRepository, type TaskRepository } from './lib/taskRepository'
   import {
     createTask, dayLabel, localDay, localDueAt, reminderDescription, tasksForView, todayProgress,
@@ -7,7 +8,7 @@
   } from './lib/tasks'
 
   const labels: Record<View, string> = {
-    today: '今天', inbox: '收件箱', planned: '计划', completed: '已完成',
+    today: '今天', inbox: '收件箱', planned: '计划',
   }
   const reminderOptions = [
     { value: 'none', label: '不提醒' }, { value: '0', label: '准时' },
@@ -19,30 +20,29 @@
   let repository: TaskRepository | null = null
   let tasks: Task[] = []
   let view: View = 'today'
+  let page: 'tasks' | 'settings' = 'tasks'
   let selectedId: string | null = null
   let addText = ''
   let addInput: HTMLInputElement
-  let menuOpen = false
+  let maximized = false
   let loading = true
   let loadError = ''
   let toastMessage = ''
   let toastUndo: (() => Promise<void>) | null = null
   let toastTimer: ReturnType<typeof setTimeout> | null = null
   let today = localDay()
+  const currentWindow = getCurrentWindow()
 
   $: visible = tasksForView(tasks, view, today)
   $: progress = todayProgress(tasks, today)
-  $: completedCount = tasks.filter(task => task.deletedAt === null && task.completedAt !== null).length
   $: heroCaption = view === 'today'
     ? progress.total === 0 ? '今天还没有任务。' : visible.length ? '先做一件，剩下的慢慢来。' : '今天的事情都处理好了。'
     : view === 'inbox' ? '先记下来，再决定什么时候做。'
-    : view === 'planned' ? '看看接下来的节奏。' : '做过的事，都留在这里。'
-  $: addHint = view === 'today' ? '新任务会安排到今天 · 点击任务可改日期'
-    : view === 'inbox' ? '先记下来，之后再安排日期'
-    : view === 'planned' ? '新任务会先安排到明天' : '新任务会加入收件箱'
+    : '看看接下来的节奏。'
 
   onMount(() => {
     void loadTasks()
+    void currentWindow.isMaximized().then(value => { maximized = value })
     const timer = setInterval(() => { today = localDay() }, 60_000)
     return () => { clearInterval(timer); if (toastTimer) clearTimeout(toastTimer) }
   })
@@ -90,7 +90,7 @@
     event.preventDefault()
     const title = addText.trim()
     if (!title || !repository) return
-    const target: View = view === 'completed' ? 'inbox' : view
+    const target = view
     try {
       await persist(createTask(title, target))
       addText = ''
@@ -105,7 +105,6 @@
   function setView(next: View) {
     view = next
     selectedId = null
-    menuOpen = false
   }
 
   function setDate(task: Task, value: string | null) {
@@ -148,22 +147,60 @@
   }
 
   function taskBadge(task: Task): string | null {
-    if (view !== 'planned' && view !== 'completed' && !task.dueTime && !(view === 'today' && task.dueDate && task.dueDate < localDay())) return null
+    if (view !== 'planned' && !task.dueTime && !(view === 'today' && task.dueDate && task.dueDate < localDay())) return null
     if (task.dueDate && task.dueDate < localDay() && !task.completedAt) return `逾期${task.dueTime ? ` · ${task.dueTime}` : ''}`
     if (view === 'today') return task.dueTime
     return `${dayLabel(task.dueDate)}${task.dueTime ? ` · ${task.dueTime}` : ''}`
   }
 
   function handleKeydown(event: KeyboardEvent) {
+    if (page === 'settings') {
+      if (event.key === 'Escape') page = 'tasks'
+      return
+    }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'n') {
       event.preventDefault()
       addInput?.focus()
     }
-    if (event.key === 'Escape') { menuOpen = false; selectedId = null }
+    if (event.key === 'Escape') selectedId = null
   }
 
-  function closeMenu(event: MouseEvent) {
-    if (!(event.target as HTMLElement).closest('.more-wrap')) menuOpen = false
+  function openSettings() {
+    selectedId = null
+    page = 'settings'
+  }
+
+  function dragMainWindow(event: MouseEvent) {
+    if (event.button === 0) {
+      event.preventDefault()
+      void currentWindow.startDragging()
+    }
+  }
+
+  function minimizeWindow() {
+    void currentWindow.minimize()
+  }
+
+  async function toggleMaximize() {
+    if (await currentWindow.isMaximized()) await currentWindow.unmaximize()
+    else await currentWindow.maximize()
+    maximized = await currentWindow.isMaximized()
+  }
+
+  function hideWindow() {
+    void currentWindow.hide()
+  }
+
+  function resizeWindow(event: MouseEvent, direction: 'North' | 'South' | 'East' | 'West' | 'NorthEast' | 'NorthWest' | 'SouthEast' | 'SouthWest') {
+    event.preventDefault()
+    void currentWindow.startResizeDragging(direction)
+  }
+
+  function resizeWindowByKeyboard(event: KeyboardEvent, direction: 'North' | 'South' | 'East' | 'West' | 'NorthEast' | 'NorthWest' | 'SouthEast' | 'SouthWest') {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      void currentWindow.startResizeDragging(direction)
+    }
   }
 
   async function undo() {
@@ -176,23 +213,53 @@
   }
 </script>
 
-<svelte:window onkeydown={handleKeydown} onclick={closeMenu} />
+<svelte:window onkeydown={handleKeydown} />
 
-<main class:editing={selectedId !== null} class="widget" aria-label="Dayset 待办">
+<main class:editing={page === 'tasks' && selectedId !== null} class:settings-active={page === 'settings'} class="widget" aria-label={page === 'settings' ? 'Dayset 设置' : 'Dayset 待办'}>
   <header class="topbar">
-    <div class="brand">Dayset</div>
-    <div class="more-wrap">
-      <button class="icon-button" type="button" aria-label="更多选项" aria-expanded={menuOpen} onclick={() => menuOpen = !menuOpen}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>
-      </button>
-      {#if menuOpen}
-        <div class="more-menu">
-          <button type="button" onclick={() => setView('completed')}>已完成 <span>{completedCount || ''}</span></button>
-        </div>
+    <button class="titlebar-drag" type="button" aria-label="拖动 Dayset 窗口" onmousedown={dragMainWindow}>
+      <span class="brand">Dayset</span>
+    </button>
+    <div class="topbar-actions">
+      {#if page === 'tasks'}
+        <button class="icon-button" type="button" aria-label="设置" title="设置" onclick={openSettings}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.7 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.7h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08Z" />
+          </svg>
+        </button>
       {/if}
+      <div class="window-controls">
+        <button class="window-control" type="button" aria-label="最小化到任务栏" title="最小化" onclick={minimizeWindow}>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M3 8h10" /></svg>
+        </button>
+        <button class="window-control" type="button" aria-label={maximized ? '还原窗口' : '最大化窗口'} title={maximized ? '还原' : '最大化'} onclick={toggleMaximize}>
+          {#if maximized}
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.1" aria-hidden="true"><path d="M5 3.5h7.5V11M11 5H4v7h7V5Z" /></svg>
+          {:else}
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.1" aria-hidden="true"><rect x="3.5" y="3.5" width="9" height="9" /></svg>
+          {/if}
+        </button>
+        <button class="window-control close-control" type="button" aria-label="隐藏到托盘" title="隐藏到托盘" onclick={hideWindow}>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
+        </button>
+      </div>
     </div>
   </header>
 
+  {#if page === 'settings'}
+  <section class="settings-page" aria-labelledby="settings-title">
+    <div class="settings-page-inner">
+      <button class="settings-back" type="button" onclick={() => page = 'tasks'}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>
+        <span>返回任务</span>
+      </button>
+      <h1 id="settings-title">设置</h1>
+      <div class="settings-divider"></div>
+      <p class="settings-note">设置选项将在这里添加。</p>
+    </div>
+  </section>
+  {:else}
   <section class="intro" aria-label="当前视图">
     <div class="intro-copy">
       <p class="date-label">{new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date())}</p>
@@ -207,8 +274,8 @@
   </section>
 
   <nav class="tabs" aria-label="任务视图">
-    {#each (['today', 'inbox', 'planned', 'completed'] as View[]) as tab}
-      <button class:active={view === tab} class:desktop-only={tab === 'completed'} type="button"
+    {#each (['today', 'inbox', 'planned'] as View[]) as tab}
+      <button class:active={view === tab} type="button"
         aria-current={view === tab ? 'page' : undefined} onclick={() => setView(tab)}>{labels[tab]}</button>
     {/each}
   </nav>
@@ -219,7 +286,7 @@
     {:else if loadError}
       <div class="empty-state"><strong>无法打开本地任务</strong><p>{loadError}</p></div>
     {:else if visible.length === 0}
-      <div class="empty-state"><div class="empty-symbol">✧</div><strong>{view === 'completed' ? '还没有完成记录' : '这里暂时空着'}</strong>
+      <div class="empty-state"><div class="empty-symbol">✧</div><strong>这里暂时空着</strong>
         <p>{view === 'today' ? '在下方添加今天想做的事。' : view === 'inbox' ? '想到什么，先记下来。' : '在下方添加一件要做的事。'}</p></div>
     {:else}
       {#each visible as task (task.id)}
@@ -266,7 +333,12 @@
                 <textarea class="detail-notes" rows="2" placeholder="补充一点细节…" value={task.notes}
                   onchange={(event) => void changeTask(task, { notes: event.currentTarget.value })}></textarea>
               </label>
-              <div class="detail-foot"><button class="delete-button" type="button" onclick={() => deleteTask(task)}>删除任务</button></div>
+              <div class="detail-foot">
+                <button class="detail-action finish-settings-button" type="button"
+                  aria-label={`完成设置：${task.title}`}
+                  onclick={() => selectedId = null}>完成设置</button>
+                <button class="detail-action delete-button" type="button" onclick={() => deleteTask(task)}>删除任务</button>
+              </div>
             </div>
           {/if}
         </div>
@@ -282,8 +354,16 @@
       <input id="add-input" bind:this={addInput} bind:value={addText} type="text" maxlength="180" autocomplete="off" placeholder="添加一件要做的事…" disabled={loading || !!loadError} />
       <button type="submit" aria-label="添加任务" disabled={loading || !!loadError}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 4v7a4 4 0 0 1-4 4H4" /><path d="m9 10-5 5 5 5" /></svg></button>
     </form>
-    <p>{addHint}</p>
   </div>
+  {/if}
+  <button class="resize-handle resize-n" type="button" aria-label="调整窗口上边缘" onmousedown={(event) => resizeWindow(event, 'North')} onkeydown={(event) => resizeWindowByKeyboard(event, 'North')}></button>
+  <button class="resize-handle resize-s" type="button" aria-label="调整窗口下边缘" onmousedown={(event) => resizeWindow(event, 'South')} onkeydown={(event) => resizeWindowByKeyboard(event, 'South')}></button>
+  <button class="resize-handle resize-e" type="button" aria-label="调整窗口右边缘" onmousedown={(event) => resizeWindow(event, 'East')} onkeydown={(event) => resizeWindowByKeyboard(event, 'East')}></button>
+  <button class="resize-handle resize-w" type="button" aria-label="调整窗口左边缘" onmousedown={(event) => resizeWindow(event, 'West')} onkeydown={(event) => resizeWindowByKeyboard(event, 'West')}></button>
+  <button class="resize-handle resize-ne" type="button" aria-label="调整窗口右上角" onmousedown={(event) => resizeWindow(event, 'NorthEast')} onkeydown={(event) => resizeWindowByKeyboard(event, 'NorthEast')}></button>
+  <button class="resize-handle resize-nw" type="button" aria-label="调整窗口左上角" onmousedown={(event) => resizeWindow(event, 'NorthWest')} onkeydown={(event) => resizeWindowByKeyboard(event, 'NorthWest')}></button>
+  <button class="resize-handle resize-se" type="button" aria-label="调整窗口右下角" onmousedown={(event) => resizeWindow(event, 'SouthEast')} onkeydown={(event) => resizeWindowByKeyboard(event, 'SouthEast')}></button>
+  <button class="resize-handle resize-sw" type="button" aria-label="调整窗口左下角" onmousedown={(event) => resizeWindow(event, 'SouthWest')} onkeydown={(event) => resizeWindowByKeyboard(event, 'SouthWest')}></button>
 </main>
 
 {#if toastMessage}
