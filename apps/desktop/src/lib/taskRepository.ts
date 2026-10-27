@@ -1,4 +1,4 @@
-import { isTauri } from '@tauri-apps/api/core'
+import { invoke, isTauri } from '@tauri-apps/api/core'
 import Database from '@tauri-apps/plugin-sql'
 import type { Task } from './tasks'
 import { taskSqlParams, UPSERT_TASK_SQL } from './taskSql'
@@ -6,6 +6,7 @@ import { taskSqlParams, UPSERT_TASK_SQL } from './taskSql'
 export interface TaskRepository {
   list(): Promise<Task[]>
   save(task: Task): Promise<void>
+  saveMany(tasks: Task[]): Promise<void>
 }
 
 const PREVIEW_KEY = 'dayset-desktop-preview-v1'
@@ -17,21 +18,30 @@ function browserRepository(): TaskRepository {
     if (!value) return []
     const parsed: unknown = JSON.parse(value)
     if (!Array.isArray(parsed)) throw new Error('本地数据格式错误。')
-    return parsed.map(task => ({
-      repeatFrequency: 'none', repeatEndMode: 'never', repeatEndDate: null, repeatCount: null,
-      repeatSeriesId: null, repeatOccurrence: 1, repeatAnchorMonth: null, repeatAnchorDay: null,
-      ...task,
-    })) as Task[]
+    return parsed.map((item: unknown) => {
+      const task = item && typeof item === 'object' ? item as Partial<Task> : {}
+      return {
+        repeatFrequency: 'none', repeatEndMode: 'never', repeatEndDate: null, repeatCount: null,
+        repeatSeriesId: null, repeatOccurrence: 1, repeatAnchorMonth: null, repeatAnchorDay: null,
+        ...task,
+        parentTaskId: task.parentTaskId ?? null,
+        tags: Array.isArray(task.tags) ? task.tags.filter((tag: unknown): tag is string => typeof tag === 'string') : [],
+      }
+    }) as Task[]
   }
-  return {
-    async list() { return read() },
-    async save(task) {
-      const tasks = read()
+  async function saveMany(updates: Task[]) {
+    const tasks = read()
+    for (const task of updates) {
       const index = tasks.findIndex(item => item.id === task.id)
       if (index === -1) tasks.push(task)
       else tasks[index] = task
-      localStorage.setItem(PREVIEW_KEY, JSON.stringify(tasks))
-    },
+    }
+    localStorage.setItem(PREVIEW_KEY, JSON.stringify(tasks))
+  }
+  return {
+    async list() { return read() },
+    async save(task) { await saveMany([task]) },
+    saveMany,
   }
 }
 
@@ -52,10 +62,21 @@ interface TaskRow {
   repeat_occurrence: number
   repeat_anchor_month: number | null
   repeat_anchor_day: number | null
+  parent_task_id: string | null
+  tags: string | null
   completed_at: number | null
   created_at: number
   updated_at: number
   deleted_at: number | null
+}
+
+function deserializeTags(value: string | null): string[] {
+  try {
+    const parsed: unknown = JSON.parse(value ?? '[]')
+    return Array.isArray(parsed) ? parsed.filter((tag): tag is string => typeof tag === 'string') : []
+  } catch {
+    return []
+  }
 }
 
 export async function openTaskRepository(): Promise<TaskRepository> {
@@ -72,12 +93,16 @@ export async function openTaskRepository(): Promise<TaskRepository> {
         repeatEndDate: row.repeat_end_date, repeatCount: row.repeat_count,
         repeatSeriesId: row.repeat_series_id, repeatOccurrence: row.repeat_occurrence ?? 1,
         repeatAnchorMonth: row.repeat_anchor_month, repeatAnchorDay: row.repeat_anchor_day,
+        parentTaskId: row.parent_task_id ?? null, tags: deserializeTags(row.tags),
         completedAt: row.completed_at,
         createdAt: row.created_at, updatedAt: row.updated_at, deletedAt: row.deleted_at,
       }))
     },
     async save(task) {
       await db.execute(UPSERT_TASK_SQL, taskSqlParams(task))
+    },
+    async saveMany(tasks) {
+      await invoke('save_tasks_atomically', { tasks })
     },
   }
 }

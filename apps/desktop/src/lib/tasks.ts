@@ -4,8 +4,10 @@ export type RepeatEndMode = 'never' | 'until' | 'count'
 
 export interface Task {
   id: string
+  parentTaskId: string | null
   title: string
   notes: string
+  tags: string[]
   dueDate: string | null // YYYY-MM-DD in the user's local calendar
   dueTime: string | null // HH:mm; only meaningful with dueDate
   timeZone: string | null // IANA zone captured when a time is set
@@ -117,8 +119,10 @@ export function createTask(title: string, view: View): Task {
   const now = Date.now()
   return {
     id: crypto.randomUUID(),
+    parentTaskId: null,
     title,
     notes: '',
+    tags: [],
     dueDate: view === 'today' ? localDay() : view === 'planned' ? localDay(1) : null,
     dueTime: null,
     timeZone: null,
@@ -139,9 +143,47 @@ export function createTask(title: string, view: View): Task {
   }
 }
 
+function activeTreePredicate(tasks: Task[]): (task: Task) => boolean {
+  const byId = new Map(tasks.map(item => [item.id, item]))
+  const cache = new Map<string, boolean>()
+  return task => {
+    if (cache.has(task.id)) return cache.get(task.id)!
+    const path: string[] = []
+    const visited = new Set<string>()
+    let current: Task | undefined = byId.get(task.id) ?? task
+    let isActive = false
+    while (current) {
+      if (cache.has(current.id)) {
+        isActive = cache.get(current.id)!
+        break
+      }
+      if (visited.has(current.id) || current.deletedAt !== null) break
+      visited.add(current.id)
+      path.push(current.id)
+      if (!current.parentTaskId) {
+        isActive = true
+        break
+      }
+      current = byId.get(current.parentTaskId)
+    }
+    for (const id of path) cache.set(id, isActive)
+    return isActive
+  }
+}
+
+export function activeTasks(tasks: Task[]): Task[] {
+  const isActive = activeTreePredicate(tasks)
+  return tasks.filter(isActive)
+}
+
+export function isTaskInActiveTree(task: Task, tasks: Task[]): boolean {
+  return activeTreePredicate(tasks)(task)
+}
+
 export function tasksForView(tasks: Task[], view: View, today = localDay()): Task[] {
+  const isActive = activeTreePredicate(tasks)
   return tasks.filter(task => {
-    if (task.deletedAt !== null) return false
+    if (!isActive(task)) return false
     if (view === 'inbox') return task.dueDate === null
     if (view === 'today') return task.dueDate !== null && task.dueDate <= today
     return task.dueDate !== null
@@ -157,8 +199,9 @@ export function tasksForView(tasks: Task[], view: View, today = localDay()): Tas
 }
 
 export function todayProgress(tasks: Task[], today = localDay()): { done: number; total: number } {
+  const isActive = activeTreePredicate(tasks)
   const due = tasks.filter(task => {
-    if (task.deletedAt !== null || !task.dueDate || task.dueDate > today) return false
+    if (!isActive(task) || !task.dueDate || task.dueDate > today) return false
     return task.completedAt === null || new Date(task.completedAt).toDateString() === new Date().toDateString()
   })
   return { done: due.filter(task => task.completedAt !== null).length, total: due.length }

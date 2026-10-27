@@ -15,6 +15,7 @@
         "title": "Dayset",
         "width": 440,
         "height": 620,
+        "visible": false,
         "minWidth": 320,
         "minHeight": 420,
         "center": true,
