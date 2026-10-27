@@ -30,6 +30,6 @@ Windows 上重复打包可在仓库根目录运行 `powershell -ExecutionPolicy 
 | `src-tauri/target/release/dayset.exe` | 直接运行的 EXE |
 | `src-tauri/target/release/bundle/nsis/Dayset_<版本号>_x64-setup.exe` | NSIS 安装包 |
 
-发布新版本时，应同步更新 `package.json`、`package-lock.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 和 `src-tauri/tauri.conf.json` 的版本号，再构建并将 EXE、安装包作为 GitHub Release 附件上传。仓库保存源码，构建产物不提交到 Git。`v0.1.2` 已包含 Windows 系统提醒和待安排视图名称调整。
+发布新版本时，应同步更新 `package.json`、`package-lock.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 和 `src-tauri/tauri.conf.json` 的版本号，再构建并将 EXE、安装包作为 GitHub Release 附件上传。仓库保存源码，构建产物不提交到 Git。`v0.1.3` 加入了重复任务、提醒和待安排视图名称调整。
 
-`v0.1.2` 使用 Rust 后台循环检查本机 SQLite，在应用运行或隐藏到托盘时发送 Windows 系统通知；启动或电脑唤醒后会补查过去 24 小时内尚未提醒的任务。Windows 原生通知需要使用安装版；浏览器预览与直接运行的 EXE 不保证显示。设置页仍无可配置选项，账号同步也尚未接入。数据模型和后续方向见[架构文档](../../docs/architecture.md)。界面中的少量图标路径来自 Lucide，许可见 [LUCIDE-LICENSE.txt](LUCIDE-LICENSE.txt)。
+`v0.1.3` 使用 Rust 后台循环检查本机 SQLite，在应用运行或隐藏到托盘时发送 Windows 系统通知；启动或电脑唤醒后会补查过去 24 小时内尚未提醒的任务。重复任务支持每天、每周、每月、每年，并可选择永不结束、按结束日期或总次数停止。Windows 原生通知需要使用安装版；浏览器预览与直接运行的 EXE 不保证显示。设置页仍无可配置选项，账号同步也尚未接入。数据模型和后续方向见[架构文档](../../docs/architecture.md)。界面中的少量图标路径来自 Lucide，许可见 [LUCIDE-LICENSE.txt](LUCIDE-LICENSE.txt)。

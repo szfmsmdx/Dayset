@@ -3,8 +3,8 @@
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { openTaskRepository, type TaskRepository } from './lib/taskRepository'
   import {
-    createTask, dayLabel, localDay, localDueAt, tasksForView, todayProgress,
-    type Task, type View,
+    createTask, dayLabel, localDay, localDueAt, nextOccurrence, tasksForView, todayProgress,
+    type RepeatEndMode, type RepeatFrequency, type Task, type View,
   } from './lib/tasks'
 
   const labels: Record<View, string> = {
@@ -109,12 +109,21 @@
 
   function setDate(task: Task, value: string | null) {
     if (task.dueDate === value) return
+    const [anchorYear, anchorMonth, anchorDay] = value?.split('-').map(Number) ?? []
     void changeTask(task, {
       dueDate: value,
       dueTime: value ? task.dueTime : null,
       timeZone: value && task.dueTime ? Intl.DateTimeFormat().resolvedOptions().timeZone : null,
       dueAt: localDueAt(value, task.dueTime),
       reminderMinutes: value ? task.reminderMinutes : null,
+      repeatFrequency: value ? task.repeatFrequency : 'none',
+      repeatEndMode: value ? task.repeatEndMode : 'never',
+      repeatEndDate: value ? task.repeatEndDate : null,
+      repeatCount: value ? task.repeatCount : null,
+      repeatSeriesId: value ? task.repeatSeriesId : null,
+      repeatOccurrence: value ? task.repeatOccurrence : 1,
+      repeatAnchorMonth: value && task.repeatFrequency !== 'none' ? anchorMonth : value ? task.repeatAnchorMonth : null,
+      repeatAnchorDay: value && task.repeatFrequency !== 'none' ? anchorDay : value ? task.repeatAnchorDay : null,
     }, value ? `已安排到${dayLabel(value)}` : '已移回待安排', true)
   }
 
@@ -134,10 +143,102 @@
       value === 'none' ? '已关闭提醒' : '已保存提醒时间', true)
   }
 
-  function toggleComplete(task: Task) {
+  function setRepeatFrequency(task: Task, value: string) {
+    if (!task.dueDate || task.completedAt !== null) return
+    const frequency = value as RepeatFrequency
+    if (frequency === 'none') {
+      void changeTask(task, {
+        repeatFrequency: 'none', repeatEndMode: 'never', repeatEndDate: null, repeatCount: null,
+        repeatSeriesId: null, repeatOccurrence: 1, repeatAnchorMonth: null, repeatAnchorDay: null,
+      }, '已关闭重复')
+      return
+    }
+    const [, month, day] = task.dueDate.split('-').map(Number)
+    void changeTask(task, {
+      repeatFrequency: frequency,
+      repeatSeriesId: task.repeatSeriesId ?? task.id,
+      repeatOccurrence: task.repeatFrequency === 'none' ? 1 : task.repeatOccurrence,
+      repeatAnchorMonth: month,
+      repeatAnchorDay: day,
+    }, '已保存重复设置')
+  }
+
+  function setRepeatEndMode(task: Task, value: string) {
+    const endMode = value as RepeatEndMode
+    void changeTask(task, {
+      repeatEndMode: endMode,
+      repeatEndDate: endMode === 'until' ? task.repeatEndDate : null,
+      repeatCount: endMode === 'count' ? Math.max(task.repeatOccurrence + 1, task.repeatCount ?? 2) : null,
+    }, '已更新重复结束方式')
+  }
+
+  function setRepeatEndDate(task: Task, value: string) {
+    if (value && task.dueDate && value < task.dueDate) {
+      showToast('结束日期不能早于首次日期')
+      return
+    }
+    void changeTask(task, { repeatEndDate: value || null }, value ? '已设置重复结束日期' : '请选择重复结束日期')
+  }
+
+  function setRepeatCount(task: Task, value: string) {
+    const count = Number(value)
+    if (!Number.isInteger(count) || count < task.repeatOccurrence + 1) {
+      showToast(`总次数至少为 ${task.repeatOccurrence + 1}`)
+      return
+    }
+    void changeTask(task, { repeatCount: count }, '已更新重复次数')
+  }
+
+  async function toggleComplete(task: Task) {
     selectedId = null
-    void changeTask(task, { completedAt: task.completedAt ? null : Date.now() },
-      task.completedAt ? '任务已恢复' : '任务已完成', true)
+    if (task.repeatFrequency === 'none' || !repository) {
+      await changeTask(task, { completedAt: task.completedAt ? null : Date.now() },
+        task.completedAt ? '任务已恢复' : '任务已完成', true)
+      return
+    }
+
+    const now = Date.now()
+    if (task.completedAt === null) {
+      const completed = { ...task, completedAt: now, updatedAt: now }
+      const next = nextOccurrence(task, today)
+      try {
+        await repository.save(completed)
+        if (next) await repository.save(next)
+        tasks = tasks.map(item => item.id === task.id ? completed : item)
+        if (next) tasks = [...tasks, next]
+        showToast(next ? `任务已完成，下次安排在 ${dayLabel(next.dueDate)}` : '任务已完成', async () => {
+          const restored = { ...task, updatedAt: Date.now() }
+          const removedNext = next ? { ...next, deletedAt: Date.now(), updatedAt: Date.now() } : null
+          if (removedNext) await repository?.save(removedNext)
+          await repository?.save(restored)
+          tasks = tasks.map(item => item.id === task.id ? restored : item.id === next?.id ? removedNext! : item)
+          showToast('已撤销')
+        })
+      } catch (error) {
+        try { await repository.save(task) } catch { /* Keep the original occurrence if rollback also fails. */ }
+        showToast(`保存失败：${error instanceof Error ? error.message : String(error)}`)
+      }
+      return
+    }
+
+    const next = tasks.find(item => item.deletedAt === null
+      && item.repeatSeriesId === task.repeatSeriesId
+      && item.repeatOccurrence === task.repeatOccurrence + 1)
+    const restored = { ...task, completedAt: null, updatedAt: now }
+    const removedNext = next ? { ...next, deletedAt: now, updatedAt: now } : null
+    try {
+      if (removedNext) await repository.save(removedNext)
+      await repository.save(restored)
+      tasks = tasks.map(item => item.id === task.id ? restored : item.id === next?.id ? removedNext! : item)
+      showToast('任务已恢复', async () => {
+        await repository?.save(task)
+        if (next) await repository?.save(next)
+        tasks = tasks.map(item => item.id === task.id ? task : item.id === next?.id ? next : item)
+        showToast('已撤销')
+      })
+    } catch (error) {
+      showToast(`保存失败：${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   function deleteTask(task: Task) {
@@ -305,19 +406,54 @@
                   onchange={(event) => void changeTask(task, { title: event.currentTarget.value.trim() || '未命名任务' })} />
               </label>
               <div class="schedule-inputs">
-                <label class="detail-label">日期
-                  <input class="detail-date" type="date" value={task.dueDate || ''} onchange={(event) => setDate(task, event.currentTarget.value || null)} />
-                </label>
-                <label class="detail-label">时间
+                <div class="schedule-field">
+                  <div class="schedule-field-heading">
+                    <label class="schedule-field-label" for={`due-date-${task.id}`}>日期</label>
+                    <button class="no-date-button" type="button"
+                      aria-label={task.dueDate ? `清除日期：${task.title}` : `当前任务无日期：${task.title}`}
+                      disabled={!task.dueDate} onclick={() => setDate(task, null)}>无日期</button>
+                  </div>
+                  <input id={`due-date-${task.id}`} class="detail-date" type="date" value={task.dueDate || ''}
+                    onchange={(event) => setDate(task, event.currentTarget.value || null)} />
+                </div>
+                <label class="schedule-field">
+                  <span class="schedule-field-heading"><span class="schedule-field-label">时间</span></span>
                   <input class="detail-time" type="time" value={task.dueTime || ''} disabled={!task.dueDate}
                     onchange={(event) => setTime(task, event.currentTarget.value || null)} />
                 </label>
               </div>
-              <div class="date-buttons">
-                <button type="button" onclick={() => setDate(task, localDay())}>今天</button>
-                <button type="button" onclick={() => setDate(task, localDay(1))}>明天</button>
-                <button type="button" onclick={() => setDate(task, null)}>无日期</button>
-              </div>
+              <label class="detail-label">重复
+                <select class="detail-reminder" value={task.repeatFrequency}
+                  disabled={!task.dueDate || task.completedAt !== null}
+                  onchange={(event) => setRepeatFrequency(task, event.currentTarget.value)}>
+                  <option value="none">不重复</option><option value="daily">每天</option>
+                  <option value="weekly">每周</option><option value="monthly">每月</option><option value="yearly">每年</option>
+                </select>
+              </label>
+              {#if !task.dueDate}<p class="repeat-hint">先设置日期，再选择重复频率。</p>{/if}
+              {#if task.repeatFrequency !== 'none'}
+                <label class="detail-label">结束方式
+                  <select class="detail-reminder" value={task.repeatEndMode}
+                    disabled={task.completedAt !== null} onchange={(event) => setRepeatEndMode(task, event.currentTarget.value)}>
+                    <option value="never">永不结束</option><option value="until">结束日期</option><option value="count">重复次数</option>
+                  </select>
+                </label>
+                {#if task.repeatEndMode === 'until'}
+                  <label class="detail-label">结束日期
+                    <input class="detail-date" type="date" value={task.repeatEndDate || ''}
+                      disabled={task.completedAt !== null} onchange={(event) => setRepeatEndDate(task, event.currentTarget.value)} />
+                  </label>
+                {:else if task.repeatEndMode === 'count'}
+                  <label class="detail-label">总次数（包含本次）
+                    <input class="detail-repeat-count" type="number" min={task.repeatOccurrence + 1}
+                      value={task.repeatCount ?? task.repeatOccurrence + 1} disabled={task.completedAt !== null}
+                      onchange={(event) => setRepeatCount(task, event.currentTarget.value)} />
+                  </label>
+                {/if}
+                <p class="repeat-hint">{task.repeatEndMode === 'until' && !task.repeatEndDate
+                  ? '请选择结束日期；未选择前不会安排下一次。'
+                  : '完成后安排下一次；错过的周期会跳到下一个未来日期。'}</p>
+              {/if}
               <label class="detail-label">提前多久提醒
                 <select class="detail-reminder" value={task.reminderMinutes === null ? 'none' : String(task.reminderMinutes)}
                   disabled={!task.dueDate || !task.dueTime} onchange={(event) => setReminder(task, event.currentTarget.value)}>
@@ -325,7 +461,7 @@
                 </select>
               </label>
               <label class="detail-label">备注
-                <textarea class="detail-notes" rows="2" placeholder="补充一点细节…" value={task.notes}
+                <textarea class="detail-notes" rows="1" placeholder="补充一点细节…" value={task.notes}
                   onchange={(event) => void changeTask(task, { notes: event.currentTarget.value })}></textarea>
               </label>
               <div class="detail-foot">

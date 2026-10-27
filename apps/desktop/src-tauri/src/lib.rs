@@ -22,6 +22,12 @@ pub fn run() {
             sql: include_str!("../migrations/0002_track_sent_reminders.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "add_task_recurrence",
+            sql: include_str!("../migrations/0003_task_recurrence.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
     let builder = tauri::Builder::default();
     #[cfg(desktop)]

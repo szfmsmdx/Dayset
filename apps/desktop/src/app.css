@@ -123,15 +123,23 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .task-detail { padding: 0 10px 16px 35px; }
 .detail-label { display: block; margin: 11px 0 7px; color: rgb(28 28 28 / 60%); font-size: 10px; letter-spacing: .12em; line-height: 1.6; }
 .schedule-inputs { display: grid; grid-template-columns: minmax(0, 1fr) 110px; gap: 8px; }
+.schedule-field { display: block; min-width: 0; margin: 11px 0 7px; }
+.schedule-field-heading { min-height: 16px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
+.schedule-field-label { display: block; color: rgb(28 28 28 / 60%); font-size: 10px; letter-spacing: .12em; line-height: 1.6; }
+.no-date-button { flex: 0 0 auto; border: 0; border-bottom: 1px solid transparent; padding: 0; color: rgb(28 28 28 / 60%); background: transparent; font-family: inherit; font-size: 10px; line-height: 1.6; cursor: pointer; transition: color .2s, border-color .2s; }
+.no-date-button:not(:disabled):hover, .no-date-button:not(:disabled):focus-visible { color: #1C1C1C; border-color: rgb(28 28 28 / 40%); }
+.no-date-button:focus-visible { outline: 1px solid rgb(28 28 28 / 40%); outline-offset: 3px; }
+.no-date-button:disabled { color: rgb(28 28 28 / 40%); cursor: default; }
 .detail-title, .detail-notes, .detail-date, .detail-time, .detail-reminder { width: 100%; border: 0; border-bottom: 1px solid rgb(28 28 28 / 20%); border-radius: 0; color: #1C1C1C; background: transparent; transition: border-color .2s; }
 .detail-title, .detail-date, .detail-time, .detail-reminder { height: 36px; padding: 7px 2px; font-family: Georgia, "Songti SC", "Noto Serif SC", serif; font-size: 16px; }
+.detail-repeat-count { width: 100%; height: 36px; border: 0; border-bottom: 1px solid rgb(28 28 28 / 20%); border-radius: 0; padding: 7px 2px; color: #1C1C1C; background: transparent; font-family: Georgia, "Songti SC", "Noto Serif SC", serif; font-size: 16px; transition: border-color .2s; }
 .detail-title:focus, .detail-notes:focus, .detail-date:focus, .detail-time:focus, .detail-reminder:focus { outline: none; border-color: #1C1C1C; }
+.detail-repeat-count:focus { outline: none; border-color: #1C1C1C; }
 .detail-time:disabled, .detail-reminder:disabled { color: rgb(28 28 28 / 40%); cursor: not-allowed; }
-.detail-notes { min-height: 58px; resize: vertical; padding: 8px 2px; font-size: 12px; line-height: 1.6; }
+.detail-repeat-count:disabled, .detail-date:disabled { color: rgb(28 28 28 / 40%); cursor: not-allowed; }
+.detail-notes { min-height: 34px; resize: vertical; padding: 4px 2px; font-size: 12px; line-height: 1.6; }
 .detail-notes::placeholder { color: rgb(28 28 28 / 40%); }
-.date-buttons { display: flex; gap: 14px; margin-top: 8px; }
-.date-buttons button { border: 0; border-bottom: 1px solid rgb(28 28 28 / 20%); padding: 4px 0; color: rgb(28 28 28 / 60%); background: transparent; font-size: 10px; letter-spacing: .1em; transition: color .2s, border-color .2s; }
-.date-buttons button:hover { color: #1C1C1C; border-color: rgb(28 28 28 / 40%); }
+.repeat-hint { margin: 5px 0 0; color: rgb(28 28 28 / 40%); font-size: 10px; line-height: 1.6; }
 .detail-foot { display: flex; justify-content: flex-end; gap: 24px; padding-top: 10px; }
 .detail-action { border: 0; border-bottom: 1px solid transparent; padding: 3px 0; background: transparent; font-family: "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif; font-size: 12px; letter-spacing: .2em; transition: color .2s, border-color .2s; }
 .finish-settings-button { color: #1C1C1C; }

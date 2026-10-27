@@ -182,28 +182,33 @@
     titleInput.addEventListener("keydown", event => { if (event.key === "Enter") titleInput.blur(); });
 
     const schedule = element("div", "schedule-inputs");
-    const dateLabel = element("label", "detail-label", "日期");
+    const dateField = element("div", "schedule-field");
+    const dateHeading = element("div", "schedule-field-heading");
+    const dateLabel = element("label", "schedule-field-label", "日期");
     const dateInput = element("input", "detail-date");
     dateInput.type = "date";
+    dateInput.id = `task-date-${task.id}`;
+    dateLabel.htmlFor = dateInput.id;
     dateInput.value = task.date || "";
-    dateLabel.append(dateInput);
+    dateHeading.append(dateLabel);
+    const clearDateButton = element("button", "no-date-button", "无日期");
+    clearDateButton.type = "button";
+    clearDateButton.disabled = !task.date;
+    clearDateButton.setAttribute("aria-label", task.date ? `清除日期：${task.title}` : `当前任务无日期：${task.title}`);
+    clearDateButton.addEventListener("click", () => setDate(task.id, null));
+    dateHeading.append(clearDateButton);
+    dateField.append(dateHeading, dateInput);
     dateInput.addEventListener("change", () => setDate(task.id, dateInput.value || null));
-    const timeLabel = element("label", "detail-label", "时间");
+    const timeField = element("label", "schedule-field");
+    const timeHeading = element("span", "schedule-field-heading");
+    timeHeading.append(element("span", "schedule-field-label", "时间"));
     const timeInput = element("input", "detail-time");
     timeInput.type = "time";
     timeInput.value = task.time || "";
     timeInput.disabled = !task.date;
-    timeLabel.append(timeInput);
+    timeField.append(timeHeading, timeInput);
     timeInput.addEventListener("change", () => setTime(task.id, timeInput.value || null));
-    schedule.append(dateLabel, timeLabel);
-
-    const dateButtons = element("div", "date-buttons");
-    for (const [label, value] of [["今天", day()], ["明天", day(1)], ["无日期", null]]) {
-      const button = element("button", "", label);
-      button.type = "button";
-      button.addEventListener("click", () => setDate(task.id, value));
-      dateButtons.append(button);
-    }
+    schedule.append(dateField, timeField);
 
     const reminderLabel = element("label", "detail-label", "提前多久提醒");
     const reminderSelect = element("select", "detail-reminder");
@@ -219,7 +224,7 @@
 
     const notesLabel = element("label", "detail-label", "备注");
     const notesInput = element("textarea", "detail-notes");
-    notesInput.rows = 2;
+    notesInput.rows = 1;
     notesInput.placeholder = "补充一点细节…";
     notesInput.value = task.notes || "";
     notesInput.addEventListener("input", () => { task.notes = notesInput.value; save(); });
