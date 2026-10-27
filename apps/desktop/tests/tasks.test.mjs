@@ -16,7 +16,7 @@ function task(overrides = {}) {
 test('新任务按所在视图安排日期', () => {
   assert.equal(createTask('今天', 'today').dueDate, localDay())
   assert.equal(createTask('计划', 'planned').dueDate, localDay(1))
-  assert.equal(createTask('收件箱', 'inbox').dueDate, null)
+  assert.equal(createTask('待安排', 'inbox').dueDate, null)
 })
 
 test('已完成事项保留在原日期视图，删除记录不可见', () => {

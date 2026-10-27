@@ -7,7 +7,7 @@
     title: $("view-title"), count: $("view-count"), dateLabel: $("date-label"),
     heroCaption: $("hero-caption"), progressBadge: $("progress-badge"), progressValue: $("progress-value"),
     tabs: $("tabs"), list: $("task-list"), addForm: $("add-form"),
-    addInput: $("add-input"), addHint: $("add-hint"), moreButton: $("more-button"),
+    addInput: $("add-input"), moreButton: $("more-button"),
     moreMenu: $("more-menu"), completedCount: $("completed-count"),
     toast: $("toast"), toastMessage: $("toast-message"), toastUndo: $("toast-undo"),
   };
@@ -25,17 +25,6 @@
     if (value === day(1)) return "明天";
     const [year, month, date] = value.split("-").map(Number);
     return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(new Date(year, month - 1, date));
-  }
-
-  function reminderPreview(task) {
-    if (!task.date || !task.time) return "先选日期和时间，再决定是否提醒。";
-    if (task.reminderMinutes === null) return "当前不提醒。";
-    const [year, month, date] = task.date.split("-").map(Number);
-    const [hour, minute] = task.time.split(":").map(Number);
-    const reminderAt = new Date(year, month - 1, date, hour, minute);
-    reminderAt.setMinutes(reminderAt.getMinutes() - task.reminderMinutes);
-    const formatted = new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(reminderAt);
-    return `预计 ${formatted} 提醒 · 原型暂不发通知`;
   }
 
   function sampleTasks() {
@@ -134,7 +123,7 @@
     task.date = value;
     if (!value) { task.time = null; task.reminderMinutes = null; }
     save(); render();
-    showToast(value ? `已安排到${formatDay(value)}` : "已移回收件箱", () => {
+    showToast(value ? `已安排到${formatDay(value)}` : "已移回待安排", () => {
       const current = byId(id);
       if (current) { Object.assign(current, previous); save(); render(); }
     });
@@ -227,7 +216,6 @@
     reminderSelect.disabled = !task.date || !task.time;
     reminderSelect.addEventListener("change", () => setReminder(task.id, reminderSelect.value === "none" ? null : Number(reminderSelect.value)));
     reminderLabel.append(reminderSelect);
-    const preview = element("p", "reminder-preview", reminderPreview(task));
 
     const notesLabel = element("label", "detail-label", "备注");
     const notesInput = element("textarea", "detail-notes");
@@ -249,7 +237,7 @@
       showToast("任务已删除", () => { state.tasks.splice(index, 0, task); save(); render(); });
     });
     foot.append(deleteButton);
-    detail.append(titleLabel, schedule, dateButtons, reminderLabel, preview, notesLabel, foot);
+    detail.append(titleLabel, schedule, dateButtons, reminderLabel, notesLabel, foot);
     return detail;
   }
 
@@ -286,7 +274,7 @@
   function render() {
     const tasks = visibleTasks();
     document.querySelector(".widget").classList.toggle("editing", tasks.some(task => task.id === state.selectedId));
-    const labels = { today: "今天", inbox: "收件箱", planned: "计划", completed: "已完成" };
+    const labels = { today: "今天", inbox: "待安排", planned: "计划", completed: "已完成" };
     refs.title.textContent = labels[state.view];
     refs.count.textContent = state.view === "today" ? `还有 ${tasks.length} 件` : `${tasks.length} 件`;
     refs.dateLabel.textContent = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "long" }).format(new Date());
@@ -302,12 +290,6 @@
       inbox: "先记下来，再决定什么时候做。",
       planned: "看看接下来的节奏。",
       completed: "做过的事，都留在这里。",
-    }[state.view];
-    refs.addHint.textContent = {
-      today: "新任务会安排到今天 · 点击任务可改日期",
-      inbox: "先记下来，之后再安排日期",
-      planned: "新任务会先安排到明天",
-      completed: "新任务会加入收件箱",
     }[state.view];
     refs.tabs.querySelectorAll("[data-view]").forEach(button => {
       const active = button.dataset.view === state.view;
@@ -344,9 +326,6 @@
     if (!event.target.closest(".more-wrap")) setMenu(false);
   });
   document.addEventListener("keydown", event => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "n") {
-      event.preventDefault(); refs.addInput.focus();
-    }
     if (event.key === "Escape") { setMenu(false); if (state.selectedId) { state.selectedId = null; render(); } }
   });
   refs.addForm.addEventListener("submit", event => {

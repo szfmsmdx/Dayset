@@ -47,16 +47,6 @@ export function localDueAt(dueDate: string | null, dueTime: string | null): numb
   return new Date(year, month - 1, day, hour, minute).getTime()
 }
 
-export function reminderDescription(task: Task): string {
-  if (!task.dueDate || !task.dueTime) return '先选日期和时间，再决定是否提醒。'
-  const date = reminderAt(task)
-  if (!date) return '当前不提醒。'
-  const formatted = new Intl.DateTimeFormat('zh-CN', {
-    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
-  }).format(date)
-  return `预计 ${formatted} 提醒 · 系统通知将在后续版本接入`
-}
-
 export function createTask(title: string, view: View): Task {
   const now = Date.now()
   return {

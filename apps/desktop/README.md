@@ -21,6 +21,8 @@ npm test
 npm run tauri -- build --bundles nsis
 ```
 
+Windows 上重复打包可在仓库根目录运行 `powershell -ExecutionPolicy Bypass -File scripts/build-fast.ps1`。脚本使用 `sccache` 缓存 Rust 编译结果，并将并行编译任务限制为 8 个，以降低资源峰值。首次使用先执行 `winget install --id Mozilla.sccache --exact`。已有的 Cargo 缓存不会自动转入 `sccache`；它主要加快依赖需要重新编译时的构建，修改 Dayset 主程序后仍需等待 release 优化。只调整前端时，可先运行 `npm run dev` 预览，无需每次制作安装包。需要进一步降低资源占用时可传入 `-Jobs 4`。
+
 构建后可在以下位置找到 Windows x64 文件：
 
 | 文件 | 用途 |
@@ -28,6 +30,6 @@ npm run tauri -- build --bundles nsis
 | `src-tauri/target/release/dayset.exe` | 直接运行的 EXE |
 | `src-tauri/target/release/bundle/nsis/Dayset_<版本号>_x64-setup.exe` | NSIS 安装包 |
 
-发布新版本时，应同步更新 `package.json`、`package-lock.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 和 `src-tauri/tauri.conf.json` 的版本号，再构建并将 EXE、安装包作为 GitHub Release 附件上传。仓库保存源码，构建产物不提交到 Git。现有 `v0.1.0` Release 已包含旧构建；本次改动准备作为 `v0.1.1` 发布。
+发布新版本时，应同步更新 `package.json`、`package-lock.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 和 `src-tauri/tauri.conf.json` 的版本号，再构建并将 EXE、安装包作为 GitHub Release 附件上传。仓库保存源码，构建产物不提交到 Git。现有 `v0.1.1` 已发布；`v0.1.2` 的提醒功能正在本地验证。
 
-目前“提醒”只显示预计时间，尚未接入 Windows 系统通知；设置页也尚无可配置选项。数据模型和后续同步方向见[架构文档](../../docs/architecture.md)。界面中的少量图标路径来自 Lucide，许可见 [LUCIDE-LICENSE.txt](LUCIDE-LICENSE.txt)。
+`v0.1.2` 使用 Rust 后台循环检查本机 SQLite，在应用运行或隐藏到托盘时发送 Windows 系统通知；启动或电脑唤醒后会补查过去 24 小时内尚未提醒的任务。Windows 原生通知需要使用安装版；浏览器预览与直接运行的 EXE 不保证显示。设置页仍无可配置选项，账号同步也尚未接入。数据模型和后续方向见[架构文档](../../docs/architecture.md)。界面中的少量图标路径来自 Lucide，许可见 [LUCIDE-LICENSE.txt](LUCIDE-LICENSE.txt)。

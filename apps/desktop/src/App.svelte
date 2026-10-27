@@ -3,12 +3,12 @@
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { openTaskRepository, type TaskRepository } from './lib/taskRepository'
   import {
-    createTask, dayLabel, localDay, localDueAt, reminderDescription, tasksForView, todayProgress,
+    createTask, dayLabel, localDay, localDueAt, tasksForView, todayProgress,
     type Task, type View,
   } from './lib/tasks'
 
   const labels: Record<View, string> = {
-    today: '今天', inbox: '收件箱', planned: '计划',
+    today: '今天', inbox: '待安排', planned: '计划',
   }
   const reminderOptions = [
     { value: 'none', label: '不提醒' }, { value: '0', label: '准时' },
@@ -115,7 +115,7 @@
       timeZone: value && task.dueTime ? Intl.DateTimeFormat().resolvedOptions().timeZone : null,
       dueAt: localDueAt(value, task.dueTime),
       reminderMinutes: value ? task.reminderMinutes : null,
-    }, value ? `已安排到${dayLabel(value)}` : '已移回收件箱', true)
+    }, value ? `已安排到${dayLabel(value)}` : '已移回待安排', true)
   }
 
   function setTime(task: Task, value: string | null) {
@@ -157,10 +157,6 @@
     if (page === 'settings') {
       if (event.key === 'Escape') page = 'tasks'
       return
-    }
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'n') {
-      event.preventDefault()
-      addInput?.focus()
     }
     if (event.key === 'Escape') selectedId = null
   }
@@ -328,7 +324,6 @@
                   {#each reminderOptions as option}<option value={option.value}>{option.label}</option>{/each}
                 </select>
               </label>
-              <p class="reminder-preview">{reminderDescription(task)}</p>
               <label class="detail-label">备注
                 <textarea class="detail-notes" rows="2" placeholder="补充一点细节…" value={task.notes}
                   onchange={(event) => void changeTask(task, { notes: event.currentTarget.value })}></textarea>
@@ -346,7 +341,6 @@
     {/if}
   </div>
 
-  <p class="desktop-help">按 Ctrl+N 快速添加<br />点击任务，可安排日期与提醒</p>
   <div class="bottom-area">
     <form class="add-form" onsubmit={addTask}>
       <span class="add-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg></span>

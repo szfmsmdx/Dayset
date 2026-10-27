@@ -32,14 +32,12 @@
 
       <nav class="tabs" id="tabs" aria-label="任务视图">
         <button type="button" data-view="today">今天</button>
-        <button type="button" data-view="inbox">收件箱</button>
+        <button type="button" data-view="inbox">待安排</button>
         <button type="button" data-view="planned">计划</button>
         <button class="desktop-only" type="button" data-view="completed">已完成</button>
       </nav>
 
       <div class="task-list" id="task-list" aria-live="polite"></div>
-
-      <p class="desktop-help">按 Ctrl+N 快速添加<br />点击任务，可安排日期与提醒</p>
 
       <div class="bottom-area">
         <form class="add-form" id="add-form">
@@ -48,7 +46,6 @@
           <input id="add-input" type="text" maxlength="180" autocomplete="off" placeholder="添加一件要做的事…" />
           <button type="submit" aria-label="添加任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 4v7a4 4 0 0 1-4 4H4" /><path d="m9 10-5 5 5 5" /></svg></button>
         </form>
-        <p id="add-hint"></p>
       </div>
     </main>
     <div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toast-message"></span><button id="toast-undo" type="button" hidden>撤销</button></div>

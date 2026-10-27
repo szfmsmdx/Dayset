@@ -5,14 +5,24 @@ use tauri::{
 };
 use tauri_plugin_sql::{Migration, MigrationKind};
 
+mod reminders;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let migrations = vec![Migration {
-        version: 1,
-        description: "create_tasks",
-        sql: include_str!("../migrations/0001_create_tasks.sql"),
-        kind: MigrationKind::Up,
-    }];
+    let migrations = vec![
+        Migration {
+            version: 1,
+            description: "create_tasks",
+            sql: include_str!("../migrations/0001_create_tasks.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "track_sent_reminders",
+            sql: include_str!("../migrations/0002_track_sent_reminders.sql"),
+            kind: MigrationKind::Up,
+        },
+    ];
     let builder = tauri::Builder::default();
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
@@ -20,6 +30,7 @@ pub fn run() {
     }));
 
     builder
+        .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations("sqlite:dayset.db", migrations)
@@ -37,9 +48,12 @@ pub fn run() {
             let show = MenuItemBuilder::with_id("show", "显示 Dayset").build(app)?;
             let quit = MenuItemBuilder::with_id("quit", "退出 Dayset").build(app)?;
             let menu = MenuBuilder::new(app).items(&[&show, &quit]).build()?;
-            let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/128x128.png"))?;
+            let tray_icon =
+                tauri::image::Image::from_bytes(include_bytes!("../icons/128x128.png"))?;
             if let Some(window) = app.get_webview_window("main") {
-                window.set_icon(tray_icon.clone())?;
+                let window_icon =
+                    tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
+                window.set_icon(window_icon)?;
             }
 
             TrayIconBuilder::new()
@@ -65,6 +79,11 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+
+            reminders::start(
+                app.handle().clone(),
+                app.path().app_config_dir()?.join("dayset.db"),
+            );
 
             Ok(())
         })

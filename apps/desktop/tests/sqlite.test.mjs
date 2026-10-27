@@ -16,6 +16,8 @@ test('SQLite 迁移可建表，任务可更新并保留软删除记录', () => {
     const save = db.prepare(UPSERT_TASK_SQL)
     const bind = value => Object.fromEntries(taskSqlParams(value).map((item, index) => [`$${index + 1}`, item]))
     save.run(bind(task))
+    db.exec(readFileSync(new URL('../src-tauri/migrations/0002_track_sent_reminders.sql', import.meta.url), 'utf8'))
+    db.prepare('UPDATE tasks SET reminded_for = ? WHERE id = ?').run(task.dueAt - 15 * 60_000, task.id)
     save.run(bind({ ...task, title: '已修改', notes: '会保留', updatedAt: 2, deletedAt: 3 }))
     const rows = db.prepare('SELECT * FROM tasks').all()
     assert.equal(rows.length, 1)
@@ -24,6 +26,7 @@ test('SQLite 迁移可建表，任务可更新并保留软删除记录', () => {
     assert.equal(rows[0].deleted_at, 3)
     assert.equal(rows[0].created_at, 1)
     assert.equal(rows[0].reminder_minutes, 15)
+    assert.equal(rows[0].reminded_for, task.dueAt - 15 * 60_000)
   } finally {
     db.close()
   }

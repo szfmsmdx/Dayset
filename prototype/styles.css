@@ -20,7 +20,7 @@ button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 1px solid #1C1C1C; outline-offset: 3px; }
 [hidden] { display: none !important; }
-.desktop-only, .desktop-help { display: none; }
+.desktop-only { display: none; }
 
 .widget {
   width: min(380px, calc(100vw - 24px));
@@ -106,7 +106,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .date-buttons { display: flex; gap: 14px; margin-top: 8px; }
 .date-buttons button { border: 0; border-bottom: 1px solid rgb(28 28 28 / 20%); padding: 4px 0; color: rgb(28 28 28 / 60%); background: transparent; font-size: 10px; letter-spacing: .1em; transition: color .2s, border-color .2s; }
 .date-buttons button:hover { color: #1C1C1C; border-color: rgb(28 28 28 / 40%); }
-.reminder-preview { margin: 6px 0 0; color: rgb(28 28 28 / 60%); font-size: 11px; line-height: 1.6; }
 .detail-foot { display: flex; justify-content: flex-end; padding-top: 10px; }
 .delete-button { border: 0; border-bottom: 1px solid transparent; padding: 3px 0; color: rgb(28 28 28 / 60%); background: transparent; font-size: 10px; letter-spacing: .12em; transition: border-color .2s, color .2s; }
 .delete-button:hover { color: #1C1C1C; border-color: #1C1C1C; }
@@ -178,7 +177,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .task-text { font-size: 15px; }
   .task-date { font-size: 11px; }
   .task-detail { max-width: 470px; padding-left: 36px; }
-  .desktop-help { grid-column: 1; grid-row: 4; display: block; align-self: end; margin: 0 23px 26px; color: rgb(28 28 28 / 60%); font-size: 11px; line-height: 1.8; }
   .bottom-area { grid-column: 2; grid-row: 4; padding: 14px 32px 17px; }
   .add-form { min-height: 46px; }
   .toast { bottom: max(24px, calc((100dvh - 620px) / 2 + 22px)); }
