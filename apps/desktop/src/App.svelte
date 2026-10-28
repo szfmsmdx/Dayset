@@ -628,7 +628,6 @@
   }
 
   async function toggleComplete(task: Task) {
-    selectedId = null
     if (task.completedAt !== null && hasCompletedAncestor(task)) {
       showToast('请先恢复上级任务，再恢复此任务。')
       return
@@ -951,11 +950,16 @@
                   <input id={`due-date-${task.id}`} class="detail-date" type="date" value={task.dueDate || ''}
                     onchange={(event) => setDate(task, event.currentTarget.value || null)} />
                 </div>
-                <label class="schedule-field">
-                  <span class="schedule-field-heading"><span class="schedule-field-label">时间</span></span>
-                  <input class="detail-time" type="time" value={task.dueTime || ''} disabled={!task.dueDate}
+                <div class="schedule-field">
+                  <div class="schedule-field-heading schedule-time-heading">
+                    <label class="schedule-field-label" for={`due-time-${task.id}`}>时间</label>
+                    <button class="no-time-button" type="button"
+                      aria-label={task.dueTime ? `清除时间：${task.title}` : `当前任务无时间：${task.title}`}
+                      disabled={!task.dueTime} onclick={() => setTime(task, null)}>无时间</button>
+                  </div>
+                  <input id={`due-time-${task.id}`} class="detail-time" type="time" value={task.dueTime || ''} disabled={!task.dueDate}
                     onchange={(event) => setTime(task, event.currentTarget.value || null)} />
-                </label>
+                </div>
                 <label class="schedule-field schedule-reminder-field">
                   <span class="schedule-field-heading"><span class="schedule-field-label">提醒</span></span>
                   <select class="detail-reminder" value={task.reminderMinutes === null ? 'none' : String(task.reminderMinutes)}

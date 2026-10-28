@@ -171,24 +171,27 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .task-tag-editor .tag-add-form button { padding: 3px 0; }
 .notes-setting { margin: 12px 0 7px; }
 .notes-setting .detail-notes { display: block; margin-top: 5px; }
-.schedule-inputs { display: grid; grid-template-columns: max-content max-content max-content; justify-content: space-between; gap: 12px; }
+.schedule-inputs { --schedule-date-width: 118px; --schedule-time-width: 81px; display: grid; grid-template-columns: var(--schedule-date-width) var(--schedule-time-width) minmax(0, 1fr); column-gap: 12px; row-gap: 12px; }
 .schedule-field { display: block; min-width: 0; margin: 11px 0 7px; }
 .schedule-field-heading { min-height: 16px; display: flex; align-items: baseline; justify-content: flex-start; gap: 8px; margin-bottom: 7px; }
 .schedule-field-label { display: block; color: rgb(28 28 28 / 60%); font-size: 10px; letter-spacing: .12em; line-height: 1.6; }
 .schedule-inputs .detail-date, .schedule-inputs .detail-time, .schedule-inputs .detail-reminder { display: block; min-width: 0; height: 36px; margin-top: 0; padding: 7px 2px; font-size: 14px; line-height: 1.2; }
-.schedule-inputs .detail-date { width: 108px; max-width: 100%; }
-.schedule-inputs .detail-time { width: 58px; max-width: 100%; }
-.schedule-inputs .detail-reminder { width: fit-content; max-width: 100%; }
+.schedule-inputs .detail-date { width: 100%; max-width: 100%; }
+.schedule-inputs .detail-time { width: 100%; max-width: 100%; }
+.schedule-inputs .detail-reminder { width: 100%; max-width: 100%; }
 .schedule-inputs .detail-date::-webkit-datetime-edit { padding: 0; font-family: inherit; font-size: 14px; }
 .schedule-inputs .detail-date::-webkit-calendar-picker-indicator { margin: 0 0 0 2px; padding: 0; }
 .schedule-inputs .detail-time::-webkit-datetime-edit { padding: 0; font-family: inherit; font-size: 14px; }
 .schedule-inputs .detail-time::-webkit-calendar-picker-indicator { margin: 0 0 0 2px; padding: 0; }
 .schedule-date-heading { justify-content: space-between; }
-.no-date-button { flex: 0 0 auto; border: 0; border-bottom: 1px solid transparent; padding: 0; color: rgb(28 28 28 / 60%); background: transparent; font-family: inherit; font-size: 10px; line-height: 1.6; cursor: pointer; transition: color .2s, border-color .2s; }
-.schedule-field-heading .no-date-button { margin-left: 2px; }
-.no-date-button:not(:disabled):hover, .no-date-button:not(:disabled):focus-visible { color: #1C1C1C; border-color: rgb(28 28 28 / 40%); }
-.no-date-button:focus-visible { outline: 1px solid rgb(28 28 28 / 40%); outline-offset: 3px; }
-.no-date-button:disabled { color: rgb(28 28 28 / 40%); cursor: default; }
+.schedule-time-heading { width: 100%; justify-content: space-between; gap: 0; }
+.schedule-time-heading .schedule-field-label { white-space: nowrap; }
+.schedule-time-heading .no-time-button { margin-left: 0; }
+.no-date-button, .no-time-button { flex: 0 0 auto; border: 0; border-bottom: 1px solid transparent; padding: 0; color: rgb(28 28 28 / 60%); background: transparent; font-family: inherit; font-size: 10px; line-height: 1.6; cursor: pointer; transition: color .2s, border-color .2s; }
+.schedule-field-heading .no-date-button, .schedule-field-heading .no-time-button { margin-left: 2px; }
+.no-date-button:not(:disabled):hover, .no-date-button:not(:disabled):focus-visible, .no-time-button:not(:disabled):hover, .no-time-button:not(:disabled):focus-visible { color: #1C1C1C; border-color: rgb(28 28 28 / 40%); }
+.no-date-button:focus-visible, .no-time-button:focus-visible { outline: 1px solid rgb(28 28 28 / 40%); outline-offset: 3px; }
+.no-date-button:disabled, .no-time-button:disabled { color: rgb(28 28 28 / 40%); cursor: default; }
 .detail-title, .detail-notes, .detail-date, .detail-time, .detail-reminder { width: 100%; border: 0; border-bottom: 1px solid rgb(28 28 28 / 20%); border-radius: 0; color: #1C1C1C; background: transparent; transition: border-color .2s; }
 .detail-title, .detail-date, .detail-time, .detail-reminder { height: 36px; padding: 7px 2px; font-family: Georgia, "Songti SC", "Noto Serif SC", serif; font-size: 16px; }
 .detail-repeat-count { width: 100%; height: 36px; border: 0; border-bottom: 1px solid rgb(28 28 28 / 20%); border-radius: 0; padding: 7px 2px; color: #1C1C1C; background: transparent; font-family: Georgia, "Songti SC", "Noto Serif SC", serif; font-size: 16px; transition: border-color .2s; }
