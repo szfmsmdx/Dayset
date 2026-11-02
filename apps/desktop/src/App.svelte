@@ -51,8 +51,10 @@
   let selectedTag: string | null = null
   let addInput: HTMLInputElement
   let draggingTaskId: string | null = null
+  let pendingTaskDrag: { taskId: string; pointerId: number; x: number; y: number } | null = null
   let dropTargetId: string | null = null
   let rootDropActive = false
+  let dragHint = ''
   let maximized = false
   let loading = true
   let loadError = ''
@@ -82,7 +84,7 @@
   $: visibleRows = buildVisibleTaskRows(tasks, view, today, selectedTag)
   $: visible = visibleRows.map(row => row.task)
   $: progress = todayProgress(tasks, today)
-  $: heroCaption = view === 'today'
+  $: heroCaption = draggingTaskId !== null ? dragHint : view === 'today'
     ? progress.total === 0 ? '今天还没有任务。' : visible.length ? '先做一件，剩下的慢慢来。' : '今天的事情都处理好了。'
     : view === 'inbox' ? '先记下来，再决定什么时候做。'
     : '看看接下来的节奏。'
@@ -313,53 +315,62 @@
     return true
   }
 
-  function startTaskDrag(event: DragEvent, task: Task) {
-    if (!event.dataTransfer) return
-    draggingTaskId = task.id
-    dropTargetId = null
-    rootDropActive = false
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', task.id)
+  function startTaskDrag(event: PointerEvent, task: Task) {
+    if (event.button !== 0) return
+    event.preventDefault()
+    pendingTaskDrag = { taskId: task.id, pointerId: event.pointerId, x: event.clientX, y: event.clientY }
+    ;(event.currentTarget as HTMLButtonElement).setPointerCapture(event.pointerId)
   }
 
   function finishTaskDrag() {
+    pendingTaskDrag = null
     draggingTaskId = null
     dropTargetId = null
     rootDropActive = false
+    dragHint = ''
   }
 
-  function allowTaskDrop(event: DragEvent, target: Task) {
-    const draggedId = event.dataTransfer?.getData('text/plain') || draggingTaskId
-    const dragged = tasks.find(task => task.id === draggedId)
-    if (!dragged || !canMoveUnder(dragged, target)) return
-    event.preventDefault()
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
-    dropTargetId = target.id
+  function updateTaskDropTarget(x: number, y: number) {
+    const list = document.querySelector<HTMLElement>('.task-list')
+    const bounds = list?.getBoundingClientRect()
+    const element = document.elementFromPoint(x, y)
+    const row = element?.closest<HTMLElement>('[data-drop-task-id]')
+    const insideList = !!bounds && x >= bounds.left && x < bounds.right && y >= bounds.top && y < bounds.bottom
+    const inLeftGutter = insideList && !!list && x < bounds.left + parseFloat(getComputedStyle(list).paddingLeft)
+    const inBlankSpace = insideList && !row && element?.closest('.task-list') === list
+    const dragged = tasks.find(task => task.id === draggingTaskId)
+    rootDropActive = !!dragged && (inLeftGutter || inBlankSpace)
+    const parent = rootDropActive ? undefined : tasks.find(task => task.id === row?.dataset.dropTaskId)
+    dropTargetId = dragged && parent && canMoveUnder(dragged, parent) ? parent.id : null
+    dragHint = rootDropActive
+      ? dragged?.parentTaskId === null ? '已经是一级任务' : '松开后成为一级任务'
+      : dropTargetId && parent
+        ? dragged?.parentTaskId === parent.id ? `已经在“${parent.title}”下` : `松开后成为“${parent.title}”的子任务`
+        : row ? '不能放在这里' : '拖到任务上成为子任务，拖到列表左侧成为一级任务'
   }
 
-  function allowRootDrop(event: DragEvent) {
-    if (!draggingTaskId) return
-    event.preventDefault()
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
-    rootDropActive = true
-  }
-
-  function dropTaskOnTask(event: DragEvent, target: Task) {
-    event.preventDefault()
-    const draggedId = event.dataTransfer?.getData('text/plain') || draggingTaskId
-    const dragged = tasks.find(task => task.id === draggedId)
-    if (dragged && canMoveUnder(dragged, target) && dragged.parentTaskId !== target.id) {
-      void changeTask(dragged, { parentTaskId: target.id }, `已将“${dragged.title}”移到“${target.title}”下`, true)
+  function moveTaskDrag(event: PointerEvent) {
+    if (!pendingTaskDrag || event.pointerId !== pendingTaskDrag.pointerId) return
+    if (!draggingTaskId) {
+      if (Math.hypot(event.clientX - pendingTaskDrag.x, event.clientY - pendingTaskDrag.y) < 5) return
+      draggingTaskId = pendingTaskDrag.taskId
     }
-    finishTaskDrag()
+    updateTaskDropTarget(event.clientX, event.clientY)
   }
 
-  function dropTaskAtRoot(event: DragEvent) {
-    event.preventDefault()
-    const draggedId = event.dataTransfer?.getData('text/plain') || draggingTaskId
-    const dragged = tasks.find(task => task.id === draggedId)
-    if (dragged && dragged.parentTaskId !== null) {
+  function dropTask(event: PointerEvent) {
+    if (!pendingTaskDrag || event.pointerId !== pendingTaskDrag.pointerId) return
+    if (!draggingTaskId) {
+      finishTaskDrag()
+      return
+    }
+    updateTaskDropTarget(event.clientX, event.clientY)
+    const dragged = tasks.find(task => task.id === draggingTaskId)
+    const parent = tasks.find(task => task.id === dropTargetId)
+    if (dragged && rootDropActive && dragged.parentTaskId !== null) {
       void changeTask(dragged, { parentTaskId: null }, `已将“${dragged.title}”移回顶层`, true)
+    } else if (dragged && parent && dragged.parentTaskId !== parent.id) {
+      void changeTask(dragged, { parentTaskId: parent.id }, `已将“${dragged.title}”移到“${parent.title}”下`, true)
     }
     finishTaskDrag()
   }
@@ -853,7 +864,7 @@
     <div class="intro-copy">
       <p class="date-label">{new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date())}</p>
       <div class="title-line"><h1>{labels[view]}</h1><span>{view === 'today' ? `还有 ${visible.length} 件` : `${visible.length} 件`}</span></div>
-      <p class="hero-caption">{heroCaption}</p>
+      <p class:drag-hint={draggingTaskId !== null} class="hero-caption">{heroCaption}</p>
     </div>
     {#if view === 'today' && progress.total > 0}
       <div class="progress-badge" style={`--progress: ${progress.done / progress.total * 100}%`} aria-label={`今日已完成 ${progress.done} 件，共 ${progress.total} 件`}>
@@ -890,13 +901,6 @@
   </nav>
 
   <div class="task-list" role="region" aria-label="任务列表" aria-live="polite">
-    {#if draggingTaskId}
-      <div class:drop-active={rootDropActive} class="root-drop-zone"
-        role="region" aria-label="移回顶层的放置区域"
-        ondragover={allowRootDrop} ondragleave={() => rootDropActive = false} ondrop={dropTaskAtRoot}>
-        拖到这里移回顶层
-      </div>
-    {/if}
     {#if loading}
       <div class="empty-state"><strong>正在读取任务…</strong></div>
     {:else if loadError}
@@ -909,13 +913,13 @@
         {@const task = row.task}
         <div class:open={selectedId === task.id} class:done={task.completedAt !== null}
           class:subtask={row.depth > 0} class:context={row.context} class:drop-target={dropTargetId === task.id} class="task-row"
-          role="group" aria-label={`任务：${task.title}`}
-          style={`margin-left: ${row.depth * 16}px`}
-          ondragover={(event) => allowTaskDrop(event, task)} ondragleave={() => dropTargetId = null}
-          ondrop={(event) => dropTaskOnTask(event, task)}>
+          role="group" aria-label={`任务：${task.title}`} data-drop-task-id={task.id}
+          style={`margin-left: ${row.depth * 16}px`}>
           <div class="task-line">
-            <button class="drag-handle" type="button" draggable="true" aria-label={`拖动任务：${task.title}`}
-              title="拖动以调整层级" ondragstart={(event) => startTaskDrag(event, task)} ondragend={finishTaskDrag}>
+            <button class:dragging={draggingTaskId === task.id} class="drag-handle" type="button" aria-label={`拖动任务：${task.title}`}
+              title="拖到任务上成为子任务，拖到列表左侧成为一级任务" onpointerdown={(event) => startTaskDrag(event, task)}
+              onpointermove={moveTaskDrag} onpointerup={dropTask} onpointercancel={finishTaskDrag}
+              onlostpointercapture={finishTaskDrag}>
               <svg viewBox="0 0 12 18" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.2" /><circle cx="9" cy="3" r="1.2" /><circle cx="3" cy="9" r="1.2" /><circle cx="9" cy="9" r="1.2" /><circle cx="3" cy="15" r="1.2" /><circle cx="9" cy="15" r="1.2" /></svg>
             </button>
             <button class="check-button" type="button" aria-label={`${task.completedAt ? '恢复' : '完成'}任务：${task.title}`} onclick={() => toggleComplete(task)}>
